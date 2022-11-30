@@ -1,7 +1,7 @@
 package ma.awb.poc.configuration;
 
-import org.springframework.batch.core.configuration.annotation.BatchConfigurer;
-import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
+import javax.sql.DataSource;
+
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -28,14 +28,27 @@ public class PersistenceConfiguration {
 	@Primary
 	@Bean
 	@ConfigurationProperties(prefix = "spring.datasource")
-	public HikariDataSource dataSource() {
+	public DataSource dataSource() {
+		HikariDataSource dataSource = DataSourceBuilder.create().type(HikariDataSource.class).build();
+		return dataSource;
+	}
+
+	@Bean
+	@ConfigurationProperties(prefix = "spring.datasource.secondary")
+	public DataSource dataSourceBatch() {
+//		return new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2)
+//				.addScript("/org/springframework/batch/core/schema-drop-h2.sql")
+//				.addScript("/org/springframework/batch/core/schema-h2.sql").build();
 		HikariDataSource dataSource = DataSourceBuilder.create().type(HikariDataSource.class).build();
 		return dataSource;
 	}
 
 	@Bean
 	public JdbcTemplate jdbcTemplate() {
-		return new JdbcTemplate(dataSource());
+		JdbcTemplate jdbcTemplate = new JdbcTemplate();
+		jdbcTemplate.setDataSource(dataSource());
+		jdbcTemplate.afterPropertiesSet();
+		return jdbcTemplate;
 	}
 
 	@Bean
@@ -44,6 +57,8 @@ public class PersistenceConfiguration {
 		entityManager.setDataSource(dataSource());
 		entityManager.setJpaVendorAdapter(jpaVendorAdapter());
 		entityManager.setPackagesToScan("ma.awb.poc.core.dao");
+		entityManager.afterPropertiesSet();
+
 		return entityManager;
 	}
 
@@ -53,10 +68,5 @@ public class PersistenceConfiguration {
 		adapter.setDatabasePlatform(DATABASE_PLATFORM_POSTGRES);
 		adapter.setShowSql(false);
 		return adapter;
-	}
-
-	@Bean
-	public BatchConfigurer batchConfigurer() {
-		return new DefaultBatchConfigurer(dataSource());
 	}
 }
