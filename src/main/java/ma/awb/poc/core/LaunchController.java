@@ -12,6 +12,7 @@ import org.springframework.batch.core.repository.JobExecutionAlreadyRunningExcep
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,11 +25,12 @@ public class LaunchController {
 	@Autowired
 	private JobLauncher jobLauncher;
 
+	@Qualifier("remotePartitioning")
 	@Autowired
 	private Job job;
 	
 	@GetMapping
-	public ResponseEntity launch() throws JobExecutionAlreadyRunningException, JobRestartException,
+	public ResponseEntity<?> launch() throws JobExecutionAlreadyRunningException, JobRestartException,
 			JobInstanceAlreadyCompleteException, JobParametersInvalidException {
 		final JobParameters parameters = new JobParametersBuilder().addDate("time", new Date()).toJobParameters();
 		final JobExecution execution = jobLauncher.run(job, parameters);

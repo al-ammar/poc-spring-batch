@@ -2,6 +2,7 @@ package ma.awb.poc.configuration;
 
 import javax.sql.DataSource;
 
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
@@ -9,13 +10,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.JpaVendorAdapter;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import com.zaxxer.hikari.HikariDataSource;
 
+@EnableAutoConfiguration
 @EnableJpaRepositories(basePackages = { "ma.awb.poc.core.dao.repository" })
 @EnableTransactionManagement
 @Configuration
@@ -29,8 +33,7 @@ public class PersistenceConfiguration {
 	@Bean
 	@ConfigurationProperties(prefix = "spring.datasource")
 	public DataSource dataSource() {
-		HikariDataSource dataSource = DataSourceBuilder.create().type(HikariDataSource.class).build();
-		return dataSource;
+		return DataSourceBuilder.create().type(HikariDataSource.class).build();
 	}
 
 	@Bean
@@ -39,8 +42,7 @@ public class PersistenceConfiguration {
 //		return new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2)
 //				.addScript("/org/springframework/batch/core/schema-drop-h2.sql")
 //				.addScript("/org/springframework/batch/core/schema-h2.sql").build();
-		HikariDataSource dataSource = DataSourceBuilder.create().type(HikariDataSource.class).build();
-		return dataSource;
+		return DataSourceBuilder.create().type(HikariDataSource.class).build();
 	}
 
 	@Bean
@@ -51,6 +53,7 @@ public class PersistenceConfiguration {
 		return jdbcTemplate;
 	}
 
+	@Primary
 	@Bean
 	public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
 		LocalContainerEntityManagerFactoryBean entityManager = new LocalContainerEntityManagerFactoryBean();
@@ -68,5 +71,18 @@ public class PersistenceConfiguration {
 		adapter.setDatabasePlatform(DATABASE_PLATFORM_POSTGRES);
 		adapter.setShowSql(false);
 		return adapter;
+	}
+
+	/**
+	 * Transaction manager
+	 * 
+	 * @return
+	 */
+	@Bean
+	public PlatformTransactionManager transactionManager() {
+		final JpaTransactionManager jpaTransactionManager = new JpaTransactionManager();
+		jpaTransactionManager.setDataSource(dataSource());
+		jpaTransactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
+		return jpaTransactionManager;
 	}
 }

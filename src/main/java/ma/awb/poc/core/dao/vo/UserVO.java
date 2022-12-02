@@ -21,6 +21,18 @@ public class UserVO {
 
 	@Column(name = "USER_NAME")
 	private String userName;
+	
+	@Column(name = "UPDATED_BY")
+	private String updatedBy;
+
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
 
 	public String getId() {
 		return id;

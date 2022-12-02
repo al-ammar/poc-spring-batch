@@ -16,6 +16,17 @@ public class UserDTO {
 	@JMap
 	private String userName;
 
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
+	@JMap
+	private String updatedBy;
+
 	public String getId() {
 		return id;
 	}
