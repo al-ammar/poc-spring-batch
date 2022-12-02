@@ -12,6 +12,7 @@ import org.springframework.batch.core.configuration.annotation.EnableBatchProces
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.listener.JobExecutionListenerSupport;
 import org.springframework.batch.core.listener.StepExecutionListenerSupport;
@@ -21,13 +22,17 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
+import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.interceptor.TransactionProxyFactoryBean;
 
@@ -47,6 +52,12 @@ public class BatchConfiguration {
 
 	private static final String STEP_NAME = "STEP_POC";
 	private static final String JOB_NAME = "JOB_POC";
+	
+	@Value("${poc.reader.maxResults}")
+	private int maxResult;
+	
+	@Value("${poc.reader.chunck}")
+	private int chunck;
 
 	@Qualifier("dataSourceBatch")
 	@Autowired
@@ -79,7 +90,7 @@ public class BatchConfiguration {
 	protected JobLauncher createJobLauncher() throws Exception {
 		SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
 		jobLauncher.setJobRepository(jobRepository());
-//		jobLauncher.setTaskExecutor(taskExecutor());
+		jobLauncher.setTaskExecutor(taskExecutor());
 		jobLauncher.afterPropertiesSet();
 		return jobLauncher;
 	}
@@ -88,19 +99,19 @@ public class BatchConfiguration {
 	public JobRepository jobRepository() throws Exception {
 		JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
 		jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
-		jobRepositoryFactoryBean.setTransactionManager(transactionManager);
+		jobRepositoryFactoryBean.setTransactionManager(new ResourcelessTransactionManager());
 		jobRepositoryFactoryBean.afterPropertiesSet();
 		return jobRepositoryFactoryBean.getObject();
 	}
 
-//	@Bean
-//	public TaskExecutor taskExecutor() {
-//		ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
-//		threadPoolTaskExecutor.setCorePoolSize(2);
-//		threadPoolTaskExecutor.setMaxPoolSize(1);
-//		threadPoolTaskExecutor.afterPropertiesSet();
-//		return threadPoolTaskExecutor;
-//	}
+	@Bean
+	public TaskExecutor taskExecutor() {
+		ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
+		threadPoolTaskExecutor.setCorePoolSize(5);
+		threadPoolTaskExecutor.setMaxPoolSize(5);
+		threadPoolTaskExecutor.afterPropertiesSet();
+		return threadPoolTaskExecutor;
+	}
 
 	@Bean
 	public JobExecutionListenerSupport jobExecutionListenerSupport() {
@@ -126,7 +137,7 @@ public class BatchConfiguration {
 	public JpaPagingItemReader<UserVO> itemRader() {
 		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
 				.name("PocReader").entityManagerFactory(entityManager.getObject()).queryString("select u from UserVO u")
-				.maxItemCount(200).build();
+				.maxItemCount(maxResult).build();
 		// Make ItemReader Thread-safe
 //		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
 //		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
@@ -153,17 +164,14 @@ public class BatchConfiguration {
 
 	@Bean
 	public Job job() throws Exception {
-		return jobBuilderFactory().get(JOB_NAME)
-//				.incrementer(new RunIdIncrementer())
-				.flow(step()).next(stepBuilderFactory().get("archiveStep").tasklet(tasklet()).build()).end().build();
+		return jobBuilderFactory().get(JOB_NAME).incrementer(new RunIdIncrementer()).listener(jobExecutionListenerSupport()).flow(step())
+				.next(stepBuilderFactory().get("archiveStep").tasklet(tasklet()).build()).end().build();
 	}
 
 	@Bean
 	public Step step() throws Exception {
-		return stepBuilderFactory().get(STEP_NAME).listener(stepExecutionListener()).<UserVO, UserDTO>chunk(100)
-				.reader(itemRader()).processor(itemProcessor()).writer(itemWriter())
-//				.taskExecutor(taskExecutor())
-//				.throttleLimit(2)
-				.build();
+		return stepBuilderFactory().get(STEP_NAME).listener(stepExecutionListener()).<UserVO, UserDTO>chunk(chunck)
+				.reader(itemRader()).processor(itemProcessor()).writer(itemWriter()).taskExecutor(taskExecutor())
+				.throttleLimit(5).build();
 	}
 }
