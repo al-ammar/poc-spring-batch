@@ -17,11 +17,6 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<commons-lang.version>3.12.0</commons-lang.version>
-		<maven.compiler.source>${java.version}</maven.compiler.source>
-		<maven.compiler.target>${java.version}</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
 	</properties>
 	<dependencies>
 		<dependency>
@@ -74,6 +69,11 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.googlecode.jmapper-framework</groupId>
+			<artifactId>jmapper-core</artifactId>
+			<version>1.6.1.CR2</version>
 		</dependency>
 		<dependency>
 			<groupId>com.h2database</groupId>

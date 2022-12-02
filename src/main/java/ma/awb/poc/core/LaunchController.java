@@ -26,7 +26,7 @@ public class LaunchController {
 
 	@Autowired
 	private Job job;
-
+	
 	@GetMapping
 	public ResponseEntity launch() throws JobExecutionAlreadyRunningException, JobRestartException,
 			JobInstanceAlreadyCompleteException, JobParametersInvalidException {
@@ -34,4 +34,5 @@ public class LaunchController {
 		final JobExecution execution = jobLauncher.run(job, parameters);
 		return ResponseEntity.noContent().build();
 	}
+
 }

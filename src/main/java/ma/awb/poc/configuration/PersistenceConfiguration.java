@@ -2,12 +2,12 @@ package ma.awb.poc.configuration;
 
 import javax.sql.DataSource;
 
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.JpaVendorAdapter;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -16,14 +16,14 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-import ma.awb.poc.core.dao.vo.UserVO;
-
+@EnableJpaRepositories(basePackages = { "ma.awb.poc.core.dao.repository" })
 @EnableTransactionManagement
-@EntityScan(basePackageClasses = UserVO.class)
 @Configuration
 public class PersistenceConfiguration {
 
 	private static final String DATABASE_PLATFORM_POSTGRES = "org.hibernate.dialect.PostgreSQL82Dialect";
+	private static final String PERSISTENCE_XML_LOCATION = "classpath:META-INF/persistence.xml";
+	private static final String PERSISTENCE_UNIT_NAME = "POC_PERSITANCE_UNIT";
 
 	@Primary
 	@Bean
@@ -52,13 +52,13 @@ public class PersistenceConfiguration {
 	}
 
 	@Bean
-	public LocalContainerEntityManagerFactoryBean entityManager() {
+	public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
 		LocalContainerEntityManagerFactoryBean entityManager = new LocalContainerEntityManagerFactoryBean();
 		entityManager.setDataSource(dataSource());
 		entityManager.setJpaVendorAdapter(jpaVendorAdapter());
-		entityManager.setPackagesToScan("ma.awb.poc.core.dao");
-		entityManager.afterPropertiesSet();
-
+		entityManager.setPackagesToScan("ma.awb.poc.core.dao.vo");
+		entityManager.setPersistenceUnitName(PERSISTENCE_UNIT_NAME);
+		entityManager.setPersistenceXmlLocation(PERSISTENCE_XML_LOCATION);
 		return entityManager;
 	}
 
