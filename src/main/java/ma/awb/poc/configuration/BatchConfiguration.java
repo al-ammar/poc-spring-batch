@@ -220,17 +220,17 @@ public class BatchConfiguration {
 
 	@StepScope
 	@Bean
-	public JpaPagingItemReader<UserVO> itemRader(
-			@Value("#{stepExecutionContext['current']}") 
-			Integer current
-	) throws Exception {
+	public JpaPagingItemReader<UserVO> itemRader(@Value("#{stepExecutionContext['current']}") Integer current)
+			throws Exception {
 		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
-				.currentItemCount(current)
-				.name("PocReader").entityManagerFactory(entityManager.getObject()).queryString("select u from UserVO u")
-				.saveState(false).maxItemCount(maxResult).build();
+				.currentItemCount(current).pageSize(chunck).name("PocReader")
+				.entityManagerFactory(entityManager.getObject())
+				.queryString("select u from UserVO u where u.updatedBy is null ORDER BY u.id").saveState(true).transacted(true)
+//				.maxItemCount(maxResult)
+				.build();
 		// Make ItemReader Thread-safe
-		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
-		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
+//		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
+//		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
 //		jpaPagingItemReaderBuilder.afterPropertiesSet();
 		return jpaPagingItemReaderBuilder;
 	}
@@ -243,19 +243,17 @@ public class BatchConfiguration {
 
 //	@StepScope
 	@Bean
-	public ItemWriter<UserVO> itemWriter() {
+	public ItemWriter<UserDTO> itemWriter() {
 		UserItemWriter itemWriter = new UserItemWriter();
-		SynchronizedItemStreamWriter<UserDTO> itemStreamWriter = new SynchronizedItemStreamWriter<UserDTO>();
-		itemStreamWriter.setDelegate(itemStreamWriter);
+//		SynchronizedItemStreamWriter<UserDTO> itemStreamWriter = new SynchronizedItemStreamWriter<UserDTO>();
+//		itemStreamWriter.setDelegate(itemStreamWriter);
 		return itemWriter;
 	}
 
 	@Bean
 	public Step stepSlave() throws Exception {
-		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserVO>chunk(chunck)
-				.reader(itemRader(null))
-//				.processor(itemProcessor())
-				.writer(itemWriter())
+		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserDTO>chunk(chunck)
+				.reader(itemRader(null)).processor(itemProcessor()).writer(itemWriter())
 //				.taskExecutor(taskExecutor())
 //				.throttleLimit(5)
 				.build();
@@ -266,7 +264,7 @@ public class BatchConfiguration {
 		return stepBuilderFactory.get("stepMaster")
 				.partitioner(stepSlave().getName(), new PocPartitioner(maxResult, chunck))
 //				.partitionHandler(partitionerHandler())
-				.step(stepSlave()).gridSize(4).taskExecutor(taskExecutor()).build();
+				.step(stepSlave()).gridSize(10).taskExecutor(taskExecutor()).build();
 	}
 
 	@Primary

@@ -1,6 +1,7 @@
 package ma.awb.poc.batch.tasklet;
 
 import java.io.IOException;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,6 +41,7 @@ public class ArchiveTasklet implements Tasklet {
 	@Override
 	public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
 		logger.info(">>>>> Début execution Tasklet At {}", new Date());
+		Files.copy(Paths.get(pathOutput, OUTPUT_FILE), Paths.get(pathArchive, OUTPUT_FILE), new CopyOption[0]);
 		final Path pathOutPath = createIfNotExist(pathOutput, OUTPUT_FILE);
 		try (Stream<Path> paths = Files.list(Paths.get(pathInput))) {
 			paths.forEach(p -> {
@@ -55,6 +57,12 @@ public class ArchiveTasklet implements Tasklet {
 							handleError(pathOutput, line);
 						}
 					});
+				} catch (IOException e) {
+					logger.error("Error reading on file {}", p.toString(), e);
+					handleError(pathInput, StringUtils.EMPTY);
+				}
+				try {
+					Files.deleteIfExists(p);
 				} catch (IOException e) {
 					logger.error("Error reading on file {}", p.toString(), e);
 					handleError(pathInput, StringUtils.EMPTY);
