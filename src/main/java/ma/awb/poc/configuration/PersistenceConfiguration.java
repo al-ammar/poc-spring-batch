@@ -83,6 +83,7 @@ public class PersistenceConfiguration {
 		final JpaTransactionManager jpaTransactionManager = new JpaTransactionManager();
 		jpaTransactionManager.setDataSource(dataSource());
 		jpaTransactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
+		jpaTransactionManager.setPersistenceUnitName(PERSISTENCE_UNIT_NAME);
 		return jpaTransactionManager;
 	}
 }

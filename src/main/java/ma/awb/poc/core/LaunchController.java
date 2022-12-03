@@ -25,7 +25,7 @@ public class LaunchController {
 	@Autowired
 	private JobLauncher jobLauncher;
 
-	@Qualifier("remotePartitioning")
+	@Qualifier("jobPoc")
 	@Autowired
 	private Job job;
 	

@@ -47,9 +47,9 @@ import ma.awb.poc.core.dao.vo.UserVO;
 import ma.awb.poc.core.model.UserDTO;
 
 @Import(value = { PersistenceConfiguration.class })
+@EnableBatchProcessing
 @EnableTransactionManagement
 @EnableAutoConfiguration
-@EnableBatchProcessing
 @Configuration
 public class BatchConfiguration {
 
@@ -67,10 +67,16 @@ public class BatchConfiguration {
 	private DataSource dataSourceBatch;
 
 	@Autowired
-	private PlatformTransactionManager transactionManager;
+	private LocalContainerEntityManagerFactoryBean entityManager;
 
 	@Autowired
-	private LocalContainerEntityManagerFactoryBean entityManager;
+	private StepBuilderFactory stepBuilderFactory;
+
+	@Autowired
+	private JobBuilderFactory jobBuilderFactory;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 //	@Bean
 //	public TransactionProxyFactoryBean baseProxy() throws Exception {
@@ -86,7 +92,50 @@ public class BatchConfiguration {
 	@Bean
 	public BatchConfigurer batchConfigurer() {
 		return new DefaultBatchConfigurer(dataSourceBatch);
+//		{
+//			@Override
+//			protected JobRepository createJobRepository() throws Exception {
+//				JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
+//				jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
+//				jobRepositoryFactoryBean.setTransactionManager(getTransactionManager());
+//				jobRepositoryFactoryBean.afterPropertiesSet();
+//				return jobRepositoryFactoryBean.getObject();
+//			}
+//
+//			@Override
+//			protected JobLauncher createJobLauncher() throws Exception {
+//				SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
+//				jobLauncher.setJobRepository(createJobRepository());
+//				jobLauncher.setTaskExecutor(taskExecutor());
+//				jobLauncher.afterPropertiesSet();
+//				return jobLauncher;
+//			}
+//
+//		};
 	}
+
+//	public JobLauncher getJobLauncher() throws Exception {
+//		SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
+//		// SimpleJobLauncher's methods Throws Generic Exception,
+//		// it would have been better to have a specific one
+//		jobLauncher.setJobRepository(getJobRepository());
+//		jobLauncher.afterPropertiesSet();
+//		return jobLauncher;
+//	}
+//
+//	private JobRepository getJobRepository() throws Exception {
+//		JobRepositoryFactoryBean factory = new JobRepositoryFactoryBean();
+//		factory.setDataSource(dataSourceBatch);
+//		factory.setTransactionManager(getTransactionManager());
+//		// JobRepositoryFactoryBean's methods Throws Generic Exception,
+//		// it would have been better to have a specific one
+//		factory.afterPropertiesSet();
+//		return factory.getObject();
+//	}
+//
+//	private PlatformTransactionManager getTransactionManager() {
+//		return new ResourcelessTransactionManager();
+//	}
 
 	@Bean
 	protected JobLauncher createJobLauncher() throws Exception {
@@ -109,8 +158,9 @@ public class BatchConfiguration {
 	@Bean
 	public TaskExecutor taskExecutor() {
 		ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
-		threadPoolTaskExecutor.setCorePoolSize(5);
-		threadPoolTaskExecutor.setMaxPoolSize(5);
+		threadPoolTaskExecutor.setCorePoolSize(20);
+		threadPoolTaskExecutor.setMaxPoolSize(20);
+//		threadPoolTaskExecutor.setQueueCapacity(20);
 		threadPoolTaskExecutor.afterPropertiesSet();
 		return threadPoolTaskExecutor;
 	}
@@ -126,43 +176,6 @@ public class BatchConfiguration {
 	}
 
 	@Bean
-	public StepBuilderFactory stepBuilderFactory() throws Exception {
-		return new StepBuilderFactory(jobRepository(), transactionManager);
-	}
-
-	@Bean
-	public JobBuilderFactory jobBuilderFactory() throws Exception {
-		return new JobBuilderFactory(jobRepository());
-	}
-
-	@StepScope
-	@Bean // @Value("#{stepExecutionContext['input.file.name']}"
-	public JpaPagingItemReader<UserVO> itemRader() {
-		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
-				.name("PocReader").entityManagerFactory(entityManager.getObject())
-				.queryString("select u from UserVO u where u.updatedBy is null").saveState(false)
-				.maxItemCount(maxResult).build();
-		// Make ItemReader Thread-safe
-		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
-		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
-		return jpaPagingItemReaderBuilder;
-	}
-
-	@Bean
-	public ItemProcessor<UserVO, UserDTO> itemProcessor() {
-		return new UserItemProcessor();
-	}
-
-	@StepScope
-	@Bean
-	public ItemWriter<UserDTO> itemWriter() {
-		UserItemWriter itemWriter = new UserItemWriter();
-		SynchronizedItemStreamWriter<UserDTO> itemStreamWriter = new SynchronizedItemStreamWriter<UserDTO>();
-		itemStreamWriter.setDelegate(itemStreamWriter);
-		return itemWriter;
-	}
-
-	@Bean
 	public ArchiveTasklet tasklet() {
 		return new ArchiveTasklet();
 	}
@@ -174,34 +187,114 @@ public class BatchConfiguration {
 //				.next(stepBuilderFactory().get("archiveStep").tasklet(tasklet()).build()).end().build();
 //	}
 
+//	@Bean(name = "partitionerJob")
+//	public Job partitionerJob() throws Exception {
+//		return jobBuilderFactory.get("partitionerJob")
+//				.incrementer(new RunIdIncrementer())
+//				.start(partitionerStep())
+//				.build();
+//	}
+//
+//	@Bean
+//	public Step partitionerStep() throws Exception {
+//		return stepBuilderFactory.get("partitionerStep")
+//				.partitioner("slaveStep1", partitioner())
+//				.step(slaveStep())
+//				.taskExecutor(taskExecutor())
+//				.gridSize(20)
+//				.build();
+//	}
+//
+//	@Bean
+//	public Step slaveStep() throws Exception {
+//		return stepBuilderFactory.get("slaveStep")
+////				.listener(stepExecutionListener())
+//				.<UserVO, UserDTO>chunk(chunck)
+//				.reader(itemRader(null))
+////				.processor(itemProcessor())
+//				.writer(itemWriter())
+////				.taskExecutor(taskExecutor())
+////				.throttleLimit(5)
+//				.build();
+//	}
+
+	@StepScope
 	@Bean
-	public Step step() throws Exception {
-		return stepBuilderFactory().get(STEP_NAME).listener(stepExecutionListener()).<UserVO, UserDTO>chunk(chunck)
-				.reader(itemRader()).processor(itemProcessor()).writer(itemWriter())
+	public JpaPagingItemReader<UserVO> itemRader(
+			@Value("#{stepExecutionContext['current']}") 
+			Integer current
+	) throws Exception {
+		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
+				.currentItemCount(current)
+				.name("PocReader").entityManagerFactory(entityManager.getObject()).queryString("select u from UserVO u")
+				.saveState(false).maxItemCount(maxResult).build();
+		// Make ItemReader Thread-safe
+		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
+		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
+//		jpaPagingItemReaderBuilder.afterPropertiesSet();
+		return jpaPagingItemReaderBuilder;
+	}
+
+//	@StepScope
+	@Bean
+	public ItemProcessor<UserVO, UserDTO> itemProcessor() {
+		return new UserItemProcessor();
+	}
+
+//	@StepScope
+	@Bean
+	public ItemWriter<UserVO> itemWriter() {
+		UserItemWriter itemWriter = new UserItemWriter();
+		SynchronizedItemStreamWriter<UserDTO> itemStreamWriter = new SynchronizedItemStreamWriter<UserDTO>();
+		itemStreamWriter.setDelegate(itemStreamWriter);
+		return itemWriter;
+	}
+
+	@Bean
+	public Step stepSlave() throws Exception {
+		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserVO>chunk(chunck)
+				.reader(itemRader(null))
+//				.processor(itemProcessor())
+				.writer(itemWriter())
 //				.taskExecutor(taskExecutor())
 //				.throttleLimit(5)
 				.build();
 	}
 
 	@Bean
-	public Step stepManager() throws Exception {
-		return stepBuilderFactory().get("stepManager").partitioner("step1", new PocPartitioner()).step(step())
-				.gridSize(4).taskExecutor(taskExecutor()).build();
+	public Step stepMaster() throws Exception {
+		return stepBuilderFactory.get("stepMaster")
+				.partitioner(stepSlave().getName(), new PocPartitioner(maxResult, chunck))
+//				.partitionHandler(partitionerHandler())
+				.step(stepSlave()).gridSize(4).taskExecutor(taskExecutor()).build();
 	}
 
 	@Primary
-	@Bean(name = "remotePartitioning")
-	public Job remotePartitioning() throws Exception {
-		return jobBuilderFactory().get("remotePartitioning").repository(jobRepository()).flow(stepManager())
-				.next(stepBuilderFactory().get("archiveStep").tasklet(tasklet()).build()).end().build();
+	@Bean(name = "jobPoc")
+	public Job jobPoc() throws Exception {
+		return jobBuilderFactory.get("jobPoc").repository(jobRepository())
+//				.incrementer(new RunIdIncrementer())
+//				.start(stepMaster())
+
+				.flow(stepMaster()).next(stepBuilderFactory.get("archiveStep").tasklet(tasklet()).build()).end()
+
+				// .next(stepBuilderFactory.get("archiveStep").tasklet(tasklet())
+//				.build())
+//				.end()
+				.build();
 	}
 
+	/*
+	 * @Bean public PocPartitioner partitioner() { PocPartitioner partitioner = new
+	 * PocPartitioner(maxResult, chunck); return partitioner; }
+	 */
+
 //	@Bean
-//	public PartitionHandler partitionerHandler() {
+//	public PartitionHandler partitionerHandler() throws Exception {
 //		TaskExecutorPartitionHandler handler = new TaskExecutorPartitionHandler();
-//		handler.setGridSize(4);
+//		handler.setGridSize(10);
 //		handler.setTaskExecutor(taskExecutor());
-//		handler.setStep(stepManager());
+//		handler.setStep(stepSlave());
 //		return handler;
 //	}
 }
