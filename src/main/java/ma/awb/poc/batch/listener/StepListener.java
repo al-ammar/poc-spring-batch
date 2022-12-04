@@ -26,14 +26,14 @@ public class StepListener extends StepExecutionListenerSupport {
 		switch (stepExecution.getExitStatus().getExitCode()) {
 		case "COMPLETED":
 			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			logger.info("<< Fin execution Step {} At {} status {} duration {} seconds", stepExecution.getId(),
+			logger.info("<< Fin execution Step {} At {} status {} duration {} seconds", stepExecution.getStepName(),
 					new Date(), stepExecution.getExitStatus(), stepExecution.getEndTime());
 			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 			break;
 		default:
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			logger.error("<< Fin execution Step {} At {} status {} duration {} seconds", stepExecution.getId(),
-					Instant.now(), stepExecution.getExitStatus(), stepExecution.getEndTime());
+			logger.error("<< Fin execution Step {} At {} status {} duration {} seconds", stepExecution.getStepName(),
+					new Date(), stepExecution.getExitStatus(), stepExecution.getEndTime());
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 			break;
 		}

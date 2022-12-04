@@ -34,7 +34,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import ma.awb.poc.batch.listener.JobListener;
@@ -58,9 +57,16 @@ public class BatchConfiguration {
 
 	@Value("${poc.reader.maxResults}")
 	private int maxResult;
-
 	@Value("${poc.reader.chunck}")
 	private int chunck;
+	@Value("${poc.poolThread.corePoolSize}")
+	private int corePoolSize;
+	@Value("${poc.poolThread.maxPoolSize}")
+	private int maxPoolSize;
+	@Value("${poc.poolThread.queueCapacity}")
+	private int queueCapacity;
+	@Value("${poc.partitioner.gridSize}")
+	private int gridSize;
 
 	@Qualifier("dataSourceBatch")
 	@Autowired
@@ -74,9 +80,6 @@ public class BatchConfiguration {
 
 	@Autowired
 	private JobBuilderFactory jobBuilderFactory;
-
-	@Autowired
-	private PlatformTransactionManager transactionManager;
 
 //	@Bean
 //	public TransactionProxyFactoryBean baseProxy() throws Exception {
@@ -158,9 +161,9 @@ public class BatchConfiguration {
 	@Bean
 	public TaskExecutor taskExecutor() {
 		ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
-		threadPoolTaskExecutor.setCorePoolSize(20);
-		threadPoolTaskExecutor.setMaxPoolSize(20);
-//		threadPoolTaskExecutor.setQueueCapacity(20);
+		threadPoolTaskExecutor.setCorePoolSize(corePoolSize);
+		threadPoolTaskExecutor.setMaxPoolSize(maxPoolSize);
+		threadPoolTaskExecutor.setQueueCapacity(queueCapacity);
 		threadPoolTaskExecutor.afterPropertiesSet();
 		return threadPoolTaskExecutor;
 	}
@@ -220,14 +223,13 @@ public class BatchConfiguration {
 
 	@StepScope
 	@Bean
-	public JpaPagingItemReader<UserVO> itemRader(@Value("#{stepExecutionContext['current']}") Integer current)
-			throws Exception {
+	public JpaPagingItemReader<UserVO> itemRader(@Value("#{stepExecutionContext['current']}") Integer current,
+			@Value("#{stepExecutionContext['criteria']}") String criteria) throws Exception {
 		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
-				.currentItemCount(current).pageSize(chunck).name("PocReader")
-				.entityManagerFactory(entityManager.getObject())
-				.queryString("select u from UserVO u where u.updatedBy is null ORDER BY u.id").saveState(true).transacted(true)
-//				.maxItemCount(maxResult)
-				.build();
+//				.currentItemCount(current)
+				.pageSize(chunck).name("itemRader").entityManagerFactory(entityManager.getObject())
+				.queryString("select u from UserVO u where u.updatedBy is null  and " + criteria).saveState(true)
+				.transacted(true).maxItemCount(maxResult).build();
 		// Make ItemReader Thread-safe
 //		SynchronizedItemStreamReader<UserVO> itemStreamReader = new SynchronizedItemStreamReader<UserVO>();
 //		itemStreamReader.setDelegate(jpaPagingItemReaderBuilder);
@@ -241,19 +243,21 @@ public class BatchConfiguration {
 		return new UserItemProcessor();
 	}
 
-//	@StepScope
+	@StepScope
 	@Bean
-	public ItemWriter<UserDTO> itemWriter() {
-		UserItemWriter itemWriter = new UserItemWriter();
-//		SynchronizedItemStreamWriter<UserDTO> itemStreamWriter = new SynchronizedItemStreamWriter<UserDTO>();
-//		itemStreamWriter.setDelegate(itemStreamWriter);
+	public ItemWriter<UserVO> itemWriter(@Value("#{stepExecutionContext['file']}") String file) {
+		UserItemWriter itemWriter = new UserItemWriter(file);
+		SynchronizedItemStreamWriter<UserVO> itemStreamWriter = new SynchronizedItemStreamWriter<UserVO>();
+		itemStreamWriter.setDelegate(itemStreamWriter);
 		return itemWriter;
 	}
 
 	@Bean
 	public Step stepSlave() throws Exception {
-		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserDTO>chunk(chunck)
-				.reader(itemRader(null)).processor(itemProcessor()).writer(itemWriter())
+		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserVO>chunk(chunck)
+				.reader(itemRader(null, null))
+//				.processor(itemProcessor())
+				.writer(itemWriter(null))
 //				.taskExecutor(taskExecutor())
 //				.throttleLimit(5)
 				.build();
@@ -264,7 +268,7 @@ public class BatchConfiguration {
 		return stepBuilderFactory.get("stepMaster")
 				.partitioner(stepSlave().getName(), new PocPartitioner(maxResult, chunck))
 //				.partitionHandler(partitionerHandler())
-				.step(stepSlave()).gridSize(10).taskExecutor(taskExecutor()).build();
+				.step(stepSlave()).gridSize(gridSize).taskExecutor(taskExecutor()).build();
 	}
 
 	@Primary

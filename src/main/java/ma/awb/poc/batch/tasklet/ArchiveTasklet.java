@@ -1,12 +1,14 @@
 package ma.awb.poc.batch.tasklet;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
@@ -41,7 +43,11 @@ public class ArchiveTasklet implements Tasklet {
 	@Override
 	public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
 		logger.info(">>>>> Début execution Tasklet At {}", new Date());
-		Files.copy(Paths.get(pathOutput, OUTPUT_FILE), Paths.get(pathArchive, OUTPUT_FILE), new CopyOption[0]);
+		if (Files.exists(Paths.get(pathOutput, OUTPUT_FILE))) {
+			File archive = new File(pathArchive, OUTPUT_FILE + UUID.randomUUID().toString());
+			File output = new File(pathOutput, OUTPUT_FILE);
+			Files.move(output.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
 		final Path pathOutPath = createIfNotExist(pathOutput, OUTPUT_FILE);
 		try (Stream<Path> paths = Files.list(Paths.get(pathInput))) {
 			paths.forEach(p -> {
@@ -62,7 +68,8 @@ public class ArchiveTasklet implements Tasklet {
 					handleError(pathInput, StringUtils.EMPTY);
 				}
 				try {
-					Files.deleteIfExists(p);
+					File archiveData = new File(pathArchive, p.getFileName().toString() + UUID.randomUUID().toString());
+					Files.move(p, archiveData.toPath());
 				} catch (IOException e) {
 					logger.error("Error reading on file {}", p.toString(), e);
 					handleError(pathInput, StringUtils.EMPTY);
@@ -76,7 +83,7 @@ public class ArchiveTasklet implements Tasklet {
 	private Path createIfNotExist(String path, String fileName) {
 		Path pathOutPut = Paths.get(path, fileName);
 		if (Files.exists(pathOutPut)) {
-			logger.info("File already exist");
+			logger.debug("File already exist", pathOutPut);
 //			Files.deleteIfExists(pathOutPut);
 		} else {
 			try {
