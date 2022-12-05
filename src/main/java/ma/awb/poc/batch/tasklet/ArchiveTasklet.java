@@ -8,7 +8,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Date;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
@@ -20,6 +19,8 @@ import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import ma.awb.poc.core.util.DateUtil;
 
 @Component
 public class ArchiveTasklet implements Tasklet {
@@ -43,8 +44,12 @@ public class ArchiveTasklet implements Tasklet {
 	@Override
 	public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
 		logger.info(">>>>> Début execution Tasklet At {}", new Date());
+		Path pathArchiveData = Paths.get(pathArchive, "data");
+		if (!Files.isDirectory(pathArchiveData)) {
+			Files.createDirectories(pathArchiveData);
+		}
 		if (Files.exists(Paths.get(pathOutput, OUTPUT_FILE))) {
-			File archive = new File(pathArchive, OUTPUT_FILE + UUID.randomUUID().toString());
+			File archive = new File(pathArchive, OUTPUT_FILE + DateUtil.format());
 			File output = new File(pathOutput, OUTPUT_FILE);
 			Files.move(output.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
 		}
@@ -68,7 +73,8 @@ public class ArchiveTasklet implements Tasklet {
 					handleError(pathInput, StringUtils.EMPTY);
 				}
 				try {
-					File archiveData = new File(pathArchive, p.getFileName().toString() + UUID.randomUUID().toString());
+					File archiveData = new File(pathArchiveData.toString(),
+							p.getFileName().toString() + DateUtil.format());
 					Files.move(p, archiveData.toPath());
 				} catch (IOException e) {
 					logger.error("Error reading on file {}", p.toString(), e);
