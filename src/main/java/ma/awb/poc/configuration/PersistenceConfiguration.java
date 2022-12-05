@@ -39,7 +39,7 @@ public class PersistenceConfiguration {
 	@Bean
 	@ConfigurationProperties(prefix = "spring.datasource.secondary")
 	public DataSource dataSourceBatch() {
-//		return new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2)
+//		EmbeddedDatabase t = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2)
 //				.addScript("/org/springframework/batch/core/schema-drop-h2.sql")
 //				.addScript("/org/springframework/batch/core/schema-h2.sql").build();
 		return DataSourceBuilder.create().type(HikariDataSource.class).build();

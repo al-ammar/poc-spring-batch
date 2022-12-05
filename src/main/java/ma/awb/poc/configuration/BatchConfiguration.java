@@ -19,7 +19,6 @@ import org.springframework.batch.core.repository.support.JobRepositoryFactoryBea
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
-import org.springframework.batch.item.support.SynchronizedItemStreamWriter;
 import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,8 +37,8 @@ import ma.awb.poc.batch.listener.JobListener;
 import ma.awb.poc.batch.listener.StepListener;
 import ma.awb.poc.batch.partitioner.PocPartitioner;
 import ma.awb.poc.batch.tasklet.ArchiveTasklet;
-import ma.awb.poc.batch.writer.UserItemWriter;
-import ma.awb.poc.core.dao.vo.UserVO;
+import ma.awb.poc.batch.writer.EventBatchItemWriter;
+import ma.awb.poc.core.dao.vo.EventBatchVO;
 
 @Import(value = { PersistenceConfiguration.class })
 @EnableBatchProcessing
@@ -76,7 +75,16 @@ public class BatchConfiguration {
 
 	@Bean
 	public BatchConfigurer batchConfigurer() {
-		return new DefaultBatchConfigurer(dataSourceBatch);
+		return new DefaultBatchConfigurer(dataSourceBatch) {
+			@Override
+			protected JobRepository createJobRepository() throws Exception {
+				JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
+				jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
+				jobRepositoryFactoryBean.setTransactionManager(getResourcelessTransactionManager());
+				jobRepositoryFactoryBean.afterPropertiesSet();
+				return jobRepositoryFactoryBean.getObject();
+			}
+		};
 	}
 
 	@Bean
@@ -88,11 +96,15 @@ public class BatchConfiguration {
 		return jobLauncher;
 	}
 
+	public ResourcelessTransactionManager getResourcelessTransactionManager() {
+		return new ResourcelessTransactionManager();
+	}
+
 	@Bean
 	public JobRepository jobRepository() throws Exception {
 		JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
 		jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
-		jobRepositoryFactoryBean.setTransactionManager(new ResourcelessTransactionManager());
+		jobRepositoryFactoryBean.setTransactionManager(getResourcelessTransactionManager());
 		jobRepositoryFactoryBean.afterPropertiesSet();
 		return jobRepositoryFactoryBean.getObject();
 	}
@@ -124,28 +136,26 @@ public class BatchConfiguration {
 
 	@StepScope
 	@Bean
-	public JpaPagingItemReader<UserVO> itemRader(@Value("#{stepExecutionContext['criterion']}") String criterion)
+	public JpaPagingItemReader<EventBatchVO> itemRader(@Value("#{stepExecutionContext['criterion']}") String criterion)
 			throws Exception {
-		JpaPagingItemReader<UserVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<UserVO>()
+		JpaPagingItemReader<EventBatchVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<EventBatchVO>()
 				.pageSize(chunck).name("itemRader").entityManagerFactory(entityManager.getObject())
-				.queryString("select u from UserVO u where u.updatedBy is null  and " + criterion).saveState(true)
+				.queryString("select u from EventBatchVO u where u.treated is null  and " + criterion).saveState(true)
 				.transacted(true).maxItemCount(maxResult).build();
 		return jpaPagingItemReaderBuilder;
 	}
 
 	@StepScope
 	@Bean
-	public ItemWriter<UserVO> itemWriter(@Value("#{stepExecutionContext['file']}") String file) {
-		UserItemWriter itemWriter = new UserItemWriter(file);
-		SynchronizedItemStreamWriter<UserVO> itemStreamWriter = new SynchronizedItemStreamWriter<UserVO>();
-		itemStreamWriter.setDelegate(itemStreamWriter);
+	public ItemWriter<EventBatchVO> itemWriter(@Value("#{stepExecutionContext['file']}") String file) {
+		EventBatchItemWriter itemWriter = new EventBatchItemWriter(file);
 		return itemWriter;
 	}
 
 	@Bean
 	public Step stepSlave() throws Exception {
-		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener()).<UserVO, UserVO>chunk(chunck)
-				.reader(itemRader(null)).writer(itemWriter(null)).build();
+		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener())
+				.<EventBatchVO, EventBatchVO>chunk(chunck).reader(itemRader(null)).writer(itemWriter(null)).build();
 	}
 
 	@Bean

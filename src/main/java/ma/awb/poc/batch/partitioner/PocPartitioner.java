@@ -30,6 +30,7 @@ public class PocPartitioner implements Partitioner {
 			context.put("file", PARTITION + index);
 			allContext.put(PARTITION + index++, context);
 		}
+		log.info("Nombre de partitioner {}", index);
 		return allContext;
 	}
 

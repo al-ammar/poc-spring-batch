@@ -15,35 +15,36 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import ma.awb.poc.core.dao.vo.EventBatchVO;
 import ma.awb.poc.core.dao.vo.UserVO;
+import ma.awb.poc.core.model.EventBatchDTO;
 import ma.awb.poc.core.model.UserDTO;
-import ma.awb.poc.core.services.IUser;
+import ma.awb.poc.core.services.IEventBatch;
 
 @Component
-public class UserItemWriter implements ItemWriter<UserVO> {
+public class EventBatchItemWriter implements ItemWriter<EventBatchVO> {
 
-	private static final Logger log = LoggerFactory.getLogger(UserItemWriter.class);
+	private static final Logger log = LoggerFactory.getLogger(EventBatchItemWriter.class);
+	private static final String SEPARATOR = ",";
 
 	@Value("${poc.directory.input}")
 	private String path;
 
 	@Autowired
-	private IUser services;
-
-	private static final String SEPARATOR = ",";
+	private IEventBatch services;
 
 	private String fileName;
 
-	public UserItemWriter() {
+	public EventBatchItemWriter() {
 	}
-
-	public UserItemWriter(String fileName) {
+	
+	public EventBatchItemWriter(String fileName) {
 		this.fileName = fileName;
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public void write(final List<? extends UserVO> items) throws Exception {
+	public void write(final List<? extends EventBatchVO> items) throws Exception {
 		Objects.requireNonNull(items, "items ne doit pas être null");
 		final Path pathFile;
 		if (!Files.exists(Paths.get(path, fileName))) {
@@ -55,13 +56,13 @@ public class UserItemWriter implements ItemWriter<UserVO> {
 			log.debug("[File] already exist {}", pathFile);
 		}
 
-		final Iterator<UserVO> iterator = (Iterator<UserVO>) items.iterator();
+		final Iterator<EventBatchVO> iterator = (Iterator<EventBatchVO>) items.iterator();
 		while (iterator.hasNext()) {
 			try {
-				final UserVO dto = iterator.next();
+				final EventBatchVO dto = iterator.next();
 				writeToFiles(dto, pathFile);
-				UserDTO u = services.getUserById(dto.getId());
-				u.setUpdatedBy("BATCH");
+				EventBatchDTO u = services.getEventBatchById(dto.getId());
+				u.setTreated(true);
 				services.upsert(u);
 			} catch (Exception e) {
 				throw e;
@@ -69,10 +70,10 @@ public class UserItemWriter implements ItemWriter<UserVO> {
 		}
 	}
 
-	private void writeToFiles(final UserVO item, final Path pathFile) throws Exception {
+	private void writeToFiles(final EventBatchVO item, final Path pathFile) throws Exception {
 		StringBuilder builder = new StringBuilder();
-		builder.append(item.getId()).append(SEPARATOR).append(item.getLastName()).append(SEPARATOR)
-				.append(item.getFirstName()).append(SEPARATOR).append(item.getUserName())
+		builder.append(item.getId()).append(SEPARATOR).append(item.getKey()).append(SEPARATOR)
+				.append(item.getValue()).append(SEPARATOR).append(item.getType())
 				.append(System.lineSeparator());
 		try {
 			log.debug("[File] writing by Writer {}", pathFile);

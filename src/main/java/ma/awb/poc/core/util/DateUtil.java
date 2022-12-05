@@ -3,7 +3,10 @@ package ma.awb.poc.core.util;
 import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.Date;
+
+import org.springframework.batch.core.metrics.BatchMetrics;
 
 public class DateUtil {
 
@@ -25,10 +28,15 @@ public class DateUtil {
 		return format.format(new Date());
 	}
 
-	public static String time(final Date dateDebut, final Date dateFin) {
+	public static String timeFormat(final Date dateDebut, final Date dateFin) {
 		final NumberFormat format = NumberFormat.getInstance();
 		format.setMaximumFractionDigits(3);
 		format.setMaximumIntegerDigits(2);
 		return format.format((dateFin.getTime() - dateDebut.getTime()) * 1000);
+	}
+
+	public static String duration(final Date dateDebut, final Date dateFin) {
+		Duration duration = BatchMetrics.calculateDuration(dateDebut, dateFin);
+		return BatchMetrics.formatDuration(duration);
 	}
 }

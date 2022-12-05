@@ -1,4 +1,4 @@
-package ma.awb.poc.core.services;
+package ma.awb.poc.core.services.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -9,6 +9,7 @@ import com.googlecode.jmapper.JMapper;
 import ma.awb.poc.core.dao.repository.UserRepository;
 import ma.awb.poc.core.dao.vo.UserVO;
 import ma.awb.poc.core.model.UserDTO;
+import ma.awb.poc.core.services.IUser;
 
 @Transactional
 @Service
