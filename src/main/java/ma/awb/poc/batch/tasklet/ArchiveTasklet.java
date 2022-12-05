@@ -49,7 +49,7 @@ public class ArchiveTasklet implements Tasklet {
 			Files.createDirectories(pathArchiveData);
 		}
 		if (Files.exists(Paths.get(pathOutput, OUTPUT_FILE))) {
-			File archive = new File(pathArchive, OUTPUT_FILE + DateUtil.format());
+			File archive = new File(pathArchive, OUTPUT_FILE + DateUtil.format(DateUtil.FORMAT_DATE_FILE_RESULT));
 			File output = new File(pathOutput, OUTPUT_FILE);
 			Files.move(output.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
 		}
@@ -74,7 +74,7 @@ public class ArchiveTasklet implements Tasklet {
 				}
 				try {
 					File archiveData = new File(pathArchiveData.toString(),
-							p.getFileName().toString() + DateUtil.format());
+							p.getFileName().toString() + DateUtil.format(DateUtil.FORMAT_DATE_FILE_RESULT));
 					Files.move(p, archiveData.toPath());
 				} catch (IOException e) {
 					logger.error("Error reading on file {}", p.toString(), e);

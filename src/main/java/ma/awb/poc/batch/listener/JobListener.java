@@ -1,40 +1,48 @@
 package ma.awb.poc.batch.listener;
 
+import java.time.Duration;
+import java.util.Date;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListenerSupport;
-import org.springframework.util.StopWatch;
+import org.springframework.batch.core.metrics.BatchMetrics;
+
+import ma.awb.poc.core.util.DateUtil;
 
 public class JobListener extends JobExecutionListenerSupport {
 
 	private static final Logger logger = LoggerFactory.getLogger(JobListener.class);
 
-	private StopWatch watch;
+	private Date dateDebut;
 
 	@Override
 	public void beforeJob(JobExecution jobExecution) {
-		watch = new StopWatch();
-		watch.start();
+		dateDebut = new Date();
 		logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-		logger.info(">> Début execution Job {} At {}", jobExecution.getId(), jobExecution.getStartTime());
+		logger.info(">> Début execution Job {} At {}", jobExecution.getJobInstance().getJobName(),
+				DateUtil.format(dateDebut));
 		logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 	}
 
 	@Override
 	public void afterJob(JobExecution jobExecution) {
-		watch.stop();
+		final Date dateFin = new Date();
+		Duration duree = BatchMetrics.calculateDuration(dateDebut, dateFin);
 		switch (jobExecution.getExitStatus().getExitCode()) {
 		case "COMPLETED":
 			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			logger.info("<< Fin execution Job {} At {} status {} duration {} seconds", jobExecution.getId(),
-					jobExecution.getEndTime(), jobExecution.getExitStatus(), watch.getTotalTimeSeconds());
+			logger.info("<< Fin execution Job {} At {} status {} duration {} seconds",
+					jobExecution.getJobInstance().getJobName(), DateUtil.format(dateFin),
+					jobExecution.getExitStatus().getExitCode(), BatchMetrics.formatDuration(duree));
 			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 			break;
 		default:
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			logger.error("<< Fin execution Job {} At {} status {} duration {} seconds", jobExecution.getId(),
-					jobExecution.getEndTime(), jobExecution.getExitStatus(), watch.getTotalTimeSeconds());
+			logger.error("<< Failure execution Job {} At {} status {} duration {} seconds",
+					jobExecution.getJobInstance().getJobName(), DateUtil.format(dateFin),
+					jobExecution.getExitStatus().getExitCode(), BatchMetrics.formatDuration(duree));
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 			break;
 		}

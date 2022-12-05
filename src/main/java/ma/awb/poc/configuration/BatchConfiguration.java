@@ -150,14 +150,16 @@ public class BatchConfiguration {
 
 	@Bean
 	public Step stepMaster() throws Exception {
-		return stepBuilderFactory.get("stepMaster").partitioner(stepSlave().getName(), new PocPartitioner())
-				.step(stepSlave()).gridSize(gridSize).taskExecutor(taskExecutor()).build();
+		return stepBuilderFactory.get("stepMaster").listener(stepExecutionListener())
+				.partitioner(stepSlave().getName(), new PocPartitioner()).step(stepSlave()).gridSize(gridSize)
+				.taskExecutor(taskExecutor()).build();
 	}
 
 	@Primary
 	@Bean(name = "jobPoc")
 	public Job jobPoc() throws Exception {
-		return jobBuilderFactory.get("jobPoc").repository(jobRepository()).flow(stepMaster())
-				.next(stepBuilderFactory.get("archiveStep").tasklet(tasklet()).build()).end().build();
+		return jobBuilderFactory.get("jobPoc").listener(jobExecutionListenerSupport()).repository(jobRepository())
+				.flow(stepMaster()).next(stepBuilderFactory.get("archiveStep").tasklet(tasklet()).build()).end()
+				.build();
 	}
 }
