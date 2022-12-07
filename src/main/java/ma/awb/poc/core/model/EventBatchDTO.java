@@ -18,7 +18,7 @@ public class EventBatchDTO {
 
 	@JMap
 	private Boolean treated;
-
+	
 	public String getId() {
 		return id;
 	}

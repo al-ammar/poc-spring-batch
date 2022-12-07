@@ -51,12 +51,14 @@ public class ArchiveTasklet implements Tasklet {
 		if (Files.exists(Paths.get(pathOutput, OUTPUT_FILE))) {
 			File archive = new File(pathArchive, OUTPUT_FILE + DateUtil.format(DateUtil.FORMAT_DATE_FILE_RESULT));
 			File output = new File(pathOutput, OUTPUT_FILE);
+			// on archive les fichiers de données, le fichier résultat doit regrouper toutes
+			// les données traités
 			Files.move(output.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
 		}
 		final Path pathOutPath = createIfNotExist(pathOutput, OUTPUT_FILE);
 		try (Stream<Path> paths = Files.list(Paths.get(pathInput))) {
 			paths.forEach(p -> {
-				logger.debug("File loaded {}", p.toString());
+				logger.debug("File loaded {}", p);
 				try (Stream<String> lines = Files.lines(p)) {
 					lines.forEach(line -> {
 						try {
@@ -64,12 +66,12 @@ public class ArchiveTasklet implements Tasklet {
 									.toString().getBytes(), StandardOpenOption.APPEND);
 						} catch (IOException e) {
 							// If Error occurs when writing on file
-							logger.error("Error writing on file {}", pathInput.toString(), e);
+							logger.error("Error writing on file {}", pathInput, e);
 							handleError(pathOutput, line);
 						}
 					});
 				} catch (IOException e) {
-					logger.error("Error reading on file {}", p.toString(), e);
+					logger.error("Error reading on file {}", p, e);
 					handleError(pathInput, StringUtils.EMPTY);
 				}
 				try {
@@ -77,7 +79,7 @@ public class ArchiveTasklet implements Tasklet {
 							p.getFileName().toString() + DateUtil.format(DateUtil.FORMAT_DATE_FILE_RESULT));
 					Files.move(p, archiveData.toPath());
 				} catch (IOException e) {
-					logger.error("Error reading on file {}", p.toString(), e);
+					logger.error("Error reading on file {}", p, e);
 					handleError(pathInput, StringUtils.EMPTY);
 				}
 			});
@@ -86,29 +88,30 @@ public class ArchiveTasklet implements Tasklet {
 		return RepeatStatus.FINISHED;
 	}
 
-	private Path createIfNotExist(String path, String fileName) {
+	private Path createIfNotExist(String path, String fileName) throws IOException {
 		Path pathOutPut = Paths.get(path, fileName);
 		if (Files.exists(pathOutPut)) {
-			logger.debug("File already exist", pathOutPut);
-//			Files.deleteIfExists(pathOutPut);
+			logger.debug("File already exist {}", pathOutPut);
+			Files.deleteIfExists(pathOutPut);
 		} else {
 			try {
 				Files.createFile(pathOutPut);
 			} catch (IOException e) {
-				logger.error("Error creating on file {}", pathOutPut.toString(), e);
+				logger.error("Error creating on file {}", pathOutPut, e);
+				throw e;
 			}
 		}
 		return pathOutPut;
 	}
 
 	private void handleError(final String path, final String line) {
-		final Path errorFile = createIfNotExist(pathOutputError, ERROR_FILE);
 		try {
+			final Path errorFile = createIfNotExist(pathOutputError, ERROR_FILE);
 			Files.write(errorFile,
 					new StringBuilder().append(line).append(System.lineSeparator()).toString().getBytes(),
 					StandardOpenOption.APPEND);
-		} catch (IOException e1) {
-			logger.error("Error writing on error file {}", path, e1);
+		} catch (IOException e) {
+			logger.error("Error writing on error file {}", path, e);
 		}
 	}
 }

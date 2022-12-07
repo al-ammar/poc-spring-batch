@@ -1,5 +1,7 @@
 package ma.awb.poc.configuration;
 
+import javax.annotation.Nonnull;
+import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
@@ -21,7 +23,6 @@ import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
 import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import ma.awb.poc.batch.listener.JobListener;
@@ -51,6 +53,8 @@ public class BatchConfiguration {
 	private int maxResult;
 	@Value("${poc.reader.chunck}")
 	private int chunck;
+	@Value("${poc.reader.pageSize}")
+	private int pageSize;
 	@Value("${poc.poolThread.corePoolSize}")
 	private int corePoolSize;
 	@Value("${poc.poolThread.maxPoolSize}")
@@ -59,38 +63,35 @@ public class BatchConfiguration {
 	private int queueCapacity;
 	@Value("${poc.partitioner.gridSize}")
 	private int gridSize;
-
-	@Qualifier("dataSourceBatch")
-	@Autowired
-	private DataSource dataSourceBatch;
-
-	@Autowired
-	private LocalContainerEntityManagerFactoryBean entityManager;
+	@Value("${poc.directory.input}")
+	private String path;
 
 	@Autowired
 	private StepBuilderFactory stepBuilderFactory;
 
-	@Autowired
-	private JobBuilderFactory jobBuilderFactory;
-
 	@Bean
-	public BatchConfigurer batchConfigurer() {
-		return new DefaultBatchConfigurer(dataSourceBatch) {
+	public BatchConfigurer batchConfigurer(DataSource dataSource, EntityManagerFactory entityManagerFactory) {
+		return new DefaultBatchConfigurer() {
 			@Override
 			protected JobRepository createJobRepository() throws Exception {
 				JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
-				jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
+				jobRepositoryFactoryBean.setDataSource(dataSource);
 				jobRepositoryFactoryBean.setTransactionManager(getResourcelessTransactionManager());
 				jobRepositoryFactoryBean.afterPropertiesSet();
 				return jobRepositoryFactoryBean.getObject();
+			}
+
+			@Override
+			public PlatformTransactionManager getTransactionManager() {
+				return getResourcelessTransactionManager();
 			}
 		};
 	}
 
 	@Bean
-	protected JobLauncher jobLauncher() throws Exception {
+	protected JobLauncher jobLauncher(JobRepository jobRepository) throws Exception {
 		SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
-		jobLauncher.setJobRepository(jobRepository());
+		jobLauncher.setJobRepository(jobRepository);
 		jobLauncher.setTaskExecutor(taskExecutor());
 		jobLauncher.afterPropertiesSet();
 		return jobLauncher;
@@ -98,15 +99,6 @@ public class BatchConfiguration {
 
 	public ResourcelessTransactionManager getResourcelessTransactionManager() {
 		return new ResourcelessTransactionManager();
-	}
-
-	@Bean
-	public JobRepository jobRepository() throws Exception {
-		JobRepositoryFactoryBean jobRepositoryFactoryBean = new JobRepositoryFactoryBean();
-		jobRepositoryFactoryBean.setDataSource(dataSourceBatch);
-		jobRepositoryFactoryBean.setTransactionManager(getResourcelessTransactionManager());
-		jobRepositoryFactoryBean.afterPropertiesSet();
-		return jobRepositoryFactoryBean.getObject();
 	}
 
 	@Bean
@@ -134,42 +126,43 @@ public class BatchConfiguration {
 		return new ArchiveTasklet();
 	}
 
+	@Nonnull
 	@StepScope
 	@Bean
-	public JpaPagingItemReader<EventBatchVO> itemRader(@Value("#{stepExecutionContext['criterion']}") String criterion)
-			throws Exception {
-		JpaPagingItemReader<EventBatchVO> jpaPagingItemReaderBuilder = new JpaPagingItemReaderBuilder<EventBatchVO>()
-				.pageSize(chunck).name("itemRader").entityManagerFactory(entityManager.getObject())
+	public JpaPagingItemReader<EventBatchVO> itemRader(LocalContainerEntityManagerFactoryBean entityManager,
+			@Value("#{stepExecutionContext['criterion']}") String criterion) {
+		return new JpaPagingItemReaderBuilder<EventBatchVO>().pageSize(pageSize).name("itemRader")
+				.entityManagerFactory(entityManager.getObject())
 				.queryString("select u from EventBatchVO u where u.treated is null  and " + criterion).saveState(true)
 				.transacted(true).maxItemCount(maxResult).build();
-		return jpaPagingItemReaderBuilder;
 	}
 
 	@StepScope
 	@Bean
 	public ItemWriter<EventBatchVO> itemWriter(@Value("#{stepExecutionContext['file']}") String file) {
-		EventBatchItemWriter itemWriter = new EventBatchItemWriter(file);
-		return itemWriter;
+		return new EventBatchItemWriter(file);
 	}
 
 	@Bean
-	public Step stepSlave() throws Exception {
+	public Step stepSlave(LocalContainerEntityManagerFactoryBean entityManager) {
 		return stepBuilderFactory.get("stepSlave").listener(stepExecutionListener())
-				.<EventBatchVO, EventBatchVO>chunk(chunck).reader(itemRader(null)).writer(itemWriter(null)).build();
+				.<EventBatchVO, EventBatchVO>chunk(chunck).reader(itemRader(entityManager, null))
+				.writer(itemWriter(null)).build();
 	}
 
 	@Bean
-	public Step stepMaster() throws Exception {
+	public Step stepMaster(LocalContainerEntityManagerFactoryBean entityManager) {
 		return stepBuilderFactory.get("stepMaster").listener(stepExecutionListener())
-				.partitioner(stepSlave().getName(), new PocPartitioner()).step(stepSlave()).gridSize(gridSize)
-				.taskExecutor(taskExecutor()).build();
+				.partitioner(stepSlave(entityManager).getName(), new PocPartitioner()).step(stepSlave(entityManager))
+				.gridSize(gridSize).taskExecutor(taskExecutor()).build();
 	}
 
 	@Primary
 	@Bean(name = "jobPoc")
-	public Job jobPoc() throws Exception {
-		return jobBuilderFactory.get("jobPoc").listener(jobExecutionListenerSupport()).repository(jobRepository())
-				.flow(stepMaster()).next(stepBuilderFactory.get("archiveStep").tasklet(tasklet()).build()).end()
-				.build();
+	public Job jobPoc(LocalContainerEntityManagerFactoryBean entityManager, JobRepository jobRepository,
+			JobBuilderFactory jobBuilderFactory) {
+		return jobBuilderFactory.get("jobPoc").listener(jobExecutionListenerSupport()).repository(jobRepository)
+				.flow(stepMaster(entityManager)).next(stepBuilderFactory.get("archiveStep").tasklet(tasklet()).build())
+				.end().build();
 	}
 }

@@ -5,6 +5,7 @@ import static ma.awb.poc.core.util.DateUtil.format;
 
 import java.util.Date;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.JobExecution;
@@ -19,30 +20,29 @@ public class JobListener extends JobExecutionListenerSupport {
 	@Override
 	public void beforeJob(JobExecution jobExecution) {
 		dateDebut = new Date();
+		final String debut = format(dateDebut);
 		logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-		logger.info(">> Début execution Job {} At {}", jobExecution.getJobInstance().getJobName(),
-				format(dateDebut));
+		logger.info(">> Début execution Job {} At {}", jobExecution.getJobInstance().getJobName(), debut);
 		logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 	}
 
 	@Override
 	public void afterJob(JobExecution jobExecution) {
 		final Date dateFin = new Date();
-		switch (jobExecution.getExitStatus().getExitCode()) {
-		case "COMPLETED":
-			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+		final String fin = format(dateFin);
+		final String duration = duration(dateDebut, dateFin);
+		if (StringUtils.equalsIgnoreCase(jobExecution.getExitStatus().getExitCode(), "COMPLETED")) {
+			logger.info(StepListener.LINE);
 			logger.info("<< Fin execution Job {} At {} status {} duration {} seconds",
-					jobExecution.getJobInstance().getJobName(), format(dateFin),
-					jobExecution.getExitStatus().getExitCode(), duration(dateDebut, dateFin));
-			logger.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			break;
-		default:
+					jobExecution.getJobInstance().getJobName(), fin, jobExecution.getExitStatus().getExitCode(),
+					duration);
+			logger.info(StepListener.LINE);
+		} else {
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 			logger.error("<< Failure execution Job {} At {} status {} duration {} seconds",
-					jobExecution.getJobInstance().getJobName(), format(dateFin),
-					jobExecution.getExitStatus().getExitCode(), duration(dateDebut, dateFin));
+					jobExecution.getJobInstance().getJobName(), fin, jobExecution.getExitStatus().getExitCode(),
+					duration);
 			logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-			break;
 		}
 
 	}

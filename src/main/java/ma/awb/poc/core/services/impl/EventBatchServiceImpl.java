@@ -18,10 +18,8 @@ public class EventBatchServiceImpl implements IEventBatch {
 	@Autowired
 	private EventBatchRepository repository;
 
-	private JMapper<EventBatchDTO, EventBatchVO> mapper = new JMapper<EventBatchDTO, EventBatchVO>(EventBatchDTO.class,
-			EventBatchVO.class);
-	private JMapper<EventBatchVO, EventBatchDTO> mapperInv = new JMapper<EventBatchVO, EventBatchDTO>(
-			EventBatchVO.class, EventBatchDTO.class);
+	private JMapper<EventBatchDTO, EventBatchVO> mapper = new JMapper<>(EventBatchDTO.class, EventBatchVO.class);
+	private JMapper<EventBatchVO, EventBatchDTO> mapperInv = new JMapper<>(EventBatchVO.class, EventBatchDTO.class);
 
 	@Override
 	public void upsert(EventBatchDTO eventBatchDTO) {

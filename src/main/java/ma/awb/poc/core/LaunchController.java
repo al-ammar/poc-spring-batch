@@ -3,7 +3,6 @@ package ma.awb.poc.core;
 import java.util.Date;
 
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.JobParametersInvalidException;
@@ -28,12 +27,12 @@ public class LaunchController {
 	@Qualifier("jobPoc")
 	@Autowired
 	private Job job;
-	
+
 	@GetMapping
-	public ResponseEntity<?> launch() throws JobExecutionAlreadyRunningException, JobRestartException,
+	public ResponseEntity launch() throws JobExecutionAlreadyRunningException, JobRestartException,
 			JobInstanceAlreadyCompleteException, JobParametersInvalidException {
 		final JobParameters parameters = new JobParametersBuilder().addDate("time", new Date()).toJobParameters();
-		final JobExecution execution = jobLauncher.run(job, parameters);
+		jobLauncher.run(job, parameters);
 		return ResponseEntity.noContent().build();
 	}
 

@@ -16,9 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import ma.awb.poc.core.dao.vo.EventBatchVO;
-import ma.awb.poc.core.dao.vo.UserVO;
 import ma.awb.poc.core.model.EventBatchDTO;
-import ma.awb.poc.core.model.UserDTO;
 import ma.awb.poc.core.services.IEventBatch;
 
 @Component
@@ -37,7 +35,7 @@ public class EventBatchItemWriter implements ItemWriter<EventBatchVO> {
 
 	public EventBatchItemWriter() {
 	}
-	
+
 	public EventBatchItemWriter(String fileName) {
 		this.fileName = fileName;
 	}
@@ -49,39 +47,38 @@ public class EventBatchItemWriter implements ItemWriter<EventBatchVO> {
 		final Path pathFile;
 		if (!Files.exists(Paths.get(path, fileName))) {
 			pathFile = Files.createFile(Paths.get(path, fileName));
-			log.debug("[File] creation by Writer {}", pathFile);
+			log.info("[File] creation by Writer {}", pathFile);
 
 		} else {
 			pathFile = Paths.get(path, fileName);
-			log.debug("[File] already exist {}", pathFile);
+			log.warn("[File] already exist {}", pathFile);
 		}
 
 		final Iterator<EventBatchVO> iterator = (Iterator<EventBatchVO>) items.iterator();
 		while (iterator.hasNext()) {
 			try {
 				final EventBatchVO dto = iterator.next();
-				writeToFiles(dto, pathFile);
+				writeToFiles(pathFile, dto);
 				EventBatchDTO u = services.getEventBatchById(dto.getId());
 				u.setTreated(true);
 				services.upsert(u);
 			} catch (Exception e) {
+				log.error("Erreur lors de l ecriture {}", pathFile, e);
 				throw e;
 			}
 		}
 	}
 
-	private void writeToFiles(final EventBatchVO item, final Path pathFile) throws Exception {
+	private void writeToFiles(final Path pathFile, final EventBatchVO item) throws Exception {
 		StringBuilder builder = new StringBuilder();
-		builder.append(item.getId()).append(SEPARATOR).append(item.getKey()).append(SEPARATOR)
-				.append(item.getValue()).append(SEPARATOR).append(item.getType())
-				.append(System.lineSeparator());
+		builder.append(item.getId()).append(SEPARATOR).append(item.getKey()).append(SEPARATOR).append(item.getValue())
+				.append(SEPARATOR).append(item.getType()).append(System.lineSeparator());
 		try {
 			log.debug("[File] writing by Writer {}", pathFile);
 			Files.write(pathFile, builder.toString().getBytes(), StandardOpenOption.APPEND);
 		} catch (Exception e) {
-			log.error("Erreur lors de l'écriture", e);
+			log.error("Erreur lors de l'écriture file {} id event {}", pathFile, item.getId(), e);
 			throw e;
 		}
 	}
-
 }

@@ -13,6 +13,9 @@ public class DateUtil {
 	public static final String FORMAT_DATE_LOG = "dd/MM/yyyy hh:mm:ss";
 	public static final String FORMAT_DATE_FILE_RESULT = "dd-MM-yyyy-hh-mm-ss";
 
+	public DateUtil() {
+	}
+
 	public static String format(final Date dateIn, final String formatIn) {
 		final DateFormat format = new SimpleDateFormat(formatIn);
 		return format.format(dateIn);

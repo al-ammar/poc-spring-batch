@@ -23,7 +23,6 @@ public class UserItemProcessor implements ItemProcessor<UserVO, UserDTO> {
 	public UserDTO process(UserVO item) throws Exception {
 		Objects.requireNonNull(item, "item ne doit pas etre null");
 		final UserDTO dto = new UserDTO();
-		log.info("imhere" + item.getId());
 		mapper.getDestination(dto, item);
 		return dto;
 	}
