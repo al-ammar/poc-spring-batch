@@ -18,7 +18,10 @@ public class EventBatchDTO {
 
 	@JMap
 	private Boolean treated;
-	
+
+	@JMap
+	private String status;
+
 	public String getId() {
 		return id;
 	}
@@ -29,6 +32,14 @@ public class EventBatchDTO {
 
 	public String getKey() {
 		return key;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 	public void setKey(String key) {

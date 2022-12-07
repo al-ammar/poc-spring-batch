@@ -25,6 +25,9 @@ public class EventBatchVO {
 	@Column(name = "TREATED")
 	private Boolean treated;
 
+	@Column(name="STATUT")
+	private String status;
+
 	public String getId() {
 		return id;
 	}
@@ -63,6 +66,14 @@ public class EventBatchVO {
 
 	public void setTreated(Boolean treated) {
 		this.treated = treated;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 }

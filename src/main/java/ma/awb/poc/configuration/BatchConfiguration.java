@@ -126,10 +126,10 @@ public class BatchConfiguration {
 		return new ArchiveTasklet();
 	}
 
-	@Nonnull
+	
 	@StepScope
 	@Bean
-	public JpaPagingItemReader<EventBatchVO> itemRader(LocalContainerEntityManagerFactoryBean entityManager,
+	public JpaPagingItemReader<EventBatchVO> itemRader(@Nonnull LocalContainerEntityManagerFactoryBean entityManager,
 			@Value("#{stepExecutionContext['criterion']}") String criterion) {
 		return new JpaPagingItemReaderBuilder<EventBatchVO>().pageSize(pageSize).name("itemRader")
 				.entityManagerFactory(entityManager.getObject())

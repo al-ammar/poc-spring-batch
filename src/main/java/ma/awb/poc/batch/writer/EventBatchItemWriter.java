@@ -4,7 +4,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -54,22 +53,22 @@ public class EventBatchItemWriter implements ItemWriter<EventBatchVO> {
 			log.warn("[File] already exist {}", pathFile);
 		}
 
-		final Iterator<EventBatchVO> iterator = (Iterator<EventBatchVO>) items.iterator();
-		while (iterator.hasNext()) {
+		items.stream().forEach(item -> {
+			EventBatchDTO dto = services.getEventBatchById(item.getId());
+			dto.setTreated(true);
+			dto.setStatus("TRAITE");
 			try {
-				final EventBatchVO dto = iterator.next();
 				writeToFiles(pathFile, dto);
-				EventBatchDTO u = services.getEventBatchById(dto.getId());
-				u.setTreated(true);
-				services.upsert(u);
+				services.upsert(dto);
 			} catch (Exception e) {
-				log.error("Erreur lors de l ecriture {}", pathFile, e);
-				throw e;
+				log.error("Erreur lors de l ecriture {} {}", pathFile, dto.getId(), e);
+				dto.setStatus("ERROR");
+				services.upsert(dto);
 			}
-		}
+		});
 	}
 
-	private void writeToFiles(final Path pathFile, final EventBatchVO item) throws Exception {
+	private void writeToFiles(final Path pathFile, final EventBatchDTO item) throws Exception {
 		StringBuilder builder = new StringBuilder();
 		builder.append(item.getId()).append(SEPARATOR).append(item.getKey()).append(SEPARATOR).append(item.getValue())
 				.append(SEPARATOR).append(item.getType()).append(System.lineSeparator());
